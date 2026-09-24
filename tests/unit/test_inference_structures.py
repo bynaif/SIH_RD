@@ -37,7 +37,17 @@ class InferenceStructuresTest(unittest.TestCase):
             "ex_logits": torch.zeros(1, 1),
             "se_logits": torch.zeros(1, 1),
         }
-        mock_gradcam.generate.return_value = {"heatmap": torch.zeros(1, 1, 384, 384)}
+        mock_gradcam.generate.return_value = {
+            "heatmap": torch.zeros(1, 1, 384, 384),
+            "output": {
+                "dr_logits": torch.zeros(1, 5),
+                "referable_logits": torch.zeros(1, 1),
+                "ma_logits": torch.zeros(1, 1, 384, 384),
+                "he_logits": torch.zeros(1, 1, 384, 384),
+                "ex_logits": torch.zeros(1, 1, 384, 384),
+                "se_logits": torch.zeros(1, 1, 384, 384),
+            },
+        }
         api_main.DEVICE = torch.device("cpu")
         api_main.MODEL_METADATA = {"experiment": "test", "checkpoint": "test.pt", "epoch": 1, "device": "cpu"}
 
@@ -79,7 +89,17 @@ class InferenceStructuresTest(unittest.TestCase):
             "ex_logits": torch.zeros(1, 1),
             "se_logits": torch.zeros(1, 1),
         }
-        mock_gradcam.generate.return_value = {"heatmap": torch.zeros(1, 1, 384, 384)}
+        mock_gradcam.generate.return_value = {
+            "heatmap": torch.zeros(1, 1, 384, 384),
+            "output": {
+                "dr_logits": torch.zeros(1, 5),
+                "referable_logits": torch.zeros(1, 1),
+                "ma_logits": torch.zeros(1, 1, 384, 384),
+                "he_logits": torch.zeros(1, 1, 384, 384),
+                "ex_logits": torch.zeros(1, 1, 384, 384),
+                "se_logits": torch.zeros(1, 1, 384, 384),
+            },
+        }
         api_main.DEVICE = torch.device("cpu")
         api_main.MODEL_METADATA = {"experiment": "test", "checkpoint": "test.pt", "epoch": 1, "device": "cpu"}
 

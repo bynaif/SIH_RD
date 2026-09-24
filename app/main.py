@@ -360,6 +360,13 @@ async def predict(
             dr_probabilities[dr_grade].item()
         )
 
+        # Convert to plain Python list NOW to release tensor reference
+        # before building the response dict.
+        dr_class_probabilities: list[float] = [
+            float(v.item()) for v in dr_probabilities
+        ]
+        del dr_probabilities
+
         referable_probability = float(
             torch.sigmoid(
                 output["referable_logits"]
@@ -384,8 +391,7 @@ async def predict(
         conformal_set = [
             grade
             for grade in range(5)
-            if float(dr_probabilities[grade].item())
-            >= conformal_cutoff
+            if dr_class_probabilities[grade] >= conformal_cutoff
         ]
 
         if not conformal_set:
@@ -444,6 +450,9 @@ async def predict(
             ).max(dim=1).values.item()
         )
 
+        # Free all remaining tensors before leaving inference_mode.
+        del output, tensor, evidence_scores
+
         evidence_reliable = (
             evidence_score >= EVIDENCE_THRESHOLD
         )
@@ -469,6 +478,16 @@ async def predict(
             != derived_referable
         )
         review_required = review_required or referable_disagreement
+
+    # Release PyTorch graph memory and trim the C heap BEFORE
+    # building the (potentially large) JSON response dict.
+    gc.collect()
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
+    print("[PREDICT] tensors_freed_gc_collected", flush=True)
 
     print("[PREDICT] response_built", flush=True)
     return {
@@ -527,10 +546,7 @@ async def predict(
             "grade": dr_grade,
             "label": DR_LABELS[dr_grade],
             "confidence": dr_confidence,
-            "class_probabilities": [
-                float(value.item())
-                for value in dr_probabilities
-            ],
+            "class_probabilities": dr_class_probabilities,
         },
 
         "referable_dr": {
@@ -749,16 +765,3 @@ async def predict(
             ),
         },
     }
-
-    # Prompt the garbage collector to reclaim per-request tensors.
-    # On memory-constrained runtimes (Render 512 MB) this helps
-    # keep RSS low between requests.
-    del tensor, output
-    gc.collect()
-    try:
-        import ctypes
-        ctypes.CDLL("libc.so.6").malloc_trim(0)
-    except Exception:
-        pass
-
-
