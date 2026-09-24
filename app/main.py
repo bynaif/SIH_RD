@@ -470,6 +470,7 @@ async def predict(
         )
         review_required = review_required or referable_disagreement
 
+    print("[PREDICT] response_built", flush=True)
     return {
         "status": "reportable",
 
