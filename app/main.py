@@ -742,4 +742,10 @@ async def predict(
     # keep RSS low between requests.
     del tensor, output
     gc.collect()
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
+
 

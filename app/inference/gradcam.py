@@ -134,12 +134,21 @@ class GradCAM:
                 cam_max - cam_min + 1e-8
             )
 
+            # Detach all returned tensors in output so PyTorch's C++ autograd
+            # engine immediately destroys and frees the forward computation graph.
+            detached_output = {}
+            for key, val in output.items():
+                if isinstance(val, torch.Tensor):
+                    detached_output[key] = val.detach()
+                else:
+                    detached_output[key] = val
+
             return {
                 "heatmap": cam.detach(),
                 "target_class": int(target_class),
                 "predicted_class": predicted_class,
                 "probabilities": probabilities.detach(),
-                "output": output,
+                "output": detached_output,
             }
         finally:
             self.activations = None

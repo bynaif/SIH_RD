@@ -64,15 +64,25 @@ docker stats "$CONTAINER" --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t
 
 if [ -n "$TEST_IMAGE" ]; then
   echo ""
-  echo "=== Step 6: Test inference ==="
+  echo "=== Step 6: Test inference (Request 1) ==="
   RESPONSE=$(curl -s -X POST "http://localhost:$PORT/predict" \
     -F "image=@$TEST_IMAGE")
   echo "$RESPONSE" | python3 -m json.tool 2>/dev/null | head -30 || echo "$RESPONSE" | head -30
   echo "..."
 
   echo ""
-  echo "=== Step 7: Memory usage (post-inference) ==="
-  sleep 2
+  echo "=== Step 7: Memory usage (post-inference 1) ==="
+  sleep 1
+  docker stats "$CONTAINER" --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}"
+
+  echo ""
+  echo "=== Step 8: Test inference (Request 2 & 3 - stability check) ==="
+  curl -s -o /dev/null -w "Request 2 HTTP Status: %{http_code}\n" -X POST "http://localhost:$PORT/predict" -F "image=@$TEST_IMAGE"
+  curl -s -o /dev/null -w "Request 3 HTTP Status: %{http_code}\n" -X POST "http://localhost:$PORT/predict" -F "image=@$TEST_IMAGE"
+
+  echo ""
+  echo "=== Step 9: Memory usage (post-inference 3) ==="
+  sleep 1
   docker stats "$CONTAINER" --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}"
 else
   echo ""

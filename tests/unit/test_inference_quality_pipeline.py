@@ -81,7 +81,10 @@ class InferenceQualityPipelineTest(unittest.TestCase):
             "ex_logits": torch.zeros(1, 1),
             "se_logits": torch.zeros(1, 1),
         }
-        mock_gradcam.generate.return_value = {"heatmap": torch.zeros(1, 1, 384, 384)}
+        mock_gradcam.generate.return_value = {
+            "heatmap": torch.zeros(1, 1, 384, 384),
+            "output": mock_model.forward_e8.return_value,
+        }
         api_main.DEVICE = torch.device("cpu")
         api_main.MODEL_METADATA = {"experiment": "test", "checkpoint": "test.pt", "epoch": 1, "device": "cpu"}
 
@@ -134,7 +137,10 @@ class InferenceQualityPipelineTest(unittest.TestCase):
             "ex_logits": torch.zeros(1, 1),
             "se_logits": torch.zeros(1, 1),
         }
-        mock_gradcam.generate.return_value = {"heatmap": torch.zeros(1, 1, 384, 384)}
+        mock_gradcam.generate.return_value = {
+            "heatmap": torch.zeros(1, 1, 384, 384),
+            "output": mock_model.forward_e8.return_value,
+        }
         api_main.DEVICE = torch.device("cpu")
         api_main.MODEL_METADATA = {"experiment": "test", "checkpoint": "test.pt", "epoch": 1, "device": "cpu"}
 
@@ -176,7 +182,10 @@ class InferenceQualityPipelineTest(unittest.TestCase):
             "ex_logits": torch.zeros(1, 1),
             "se_logits": torch.zeros(1, 1),
         }
-        mock_gradcam.generate.return_value = {"heatmap": torch.zeros(1, 1, 384, 384)}
+        mock_gradcam.generate.return_value = {
+            "heatmap": torch.zeros(1, 1, 384, 384),
+            "output": mock_model.forward_e8.return_value,
+        }
         api_main.DEVICE = torch.device("cpu")
         api_main.MODEL_METADATA = {"experiment": "test", "checkpoint": "test.pt", "epoch": 1, "device": "cpu"}
 
