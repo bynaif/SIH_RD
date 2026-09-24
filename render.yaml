@@ -11,13 +11,13 @@ services:
       - key: INFERENCE_DEVICE
         value: cpu
       - key: OMP_NUM_THREADS
-        value: "1"
+        value: "2"
       - key: MKL_NUM_THREADS
-        value: "1"
+        value: "2"
       - key: OPENBLAS_NUM_THREADS
-        value: "1"
+        value: "2"
       - key: TORCH_NUM_THREADS
-        value: "1"
+        value: "2"
       - key: MALLOC_TRIM_THRESHOLD_
         value: "0"
       - key: PYTORCH_NO_CUDA_MEMORY_CACHING
