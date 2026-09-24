@@ -35,6 +35,10 @@ def resolve_checkpoint_path(
 def get_device() -> torch.device:
     """Select the safest available inference device."""
 
+    configured_device = os.environ.get("INFERENCE_DEVICE")
+    if configured_device:
+        return torch.device(configured_device)
+
     if torch.backends.mps.is_available():
         return torch.device("mps")
 
@@ -77,6 +81,8 @@ def load_model(
     checkpoint = torch.load(
         checkpoint_path,
         map_location="cpu",
+        weights_only=True,
+        mmap=True,
     )
 
     if not isinstance(checkpoint, dict):
@@ -127,5 +133,10 @@ def load_model(
             {},
         ),
     }
+
+    del state_dict
+    del checkpoint
+    import gc
+    gc.collect()
 
     return model, metadata

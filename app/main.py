@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
+import gc
 import io
+import os
 from pathlib import Path
 
 import torch
@@ -34,6 +36,7 @@ MODEL = None
 MODEL_METADATA = None
 DEVICE = None
 GRADCAM = None
+INFERENCE_TRANSFORM = build_inference_transform()
 
 
 REFERABLE_THRESHOLD = 0.05
@@ -62,6 +65,9 @@ def startup_event():
 
     MODEL, MODEL_METADATA = load_model()
     DEVICE = torch.device(MODEL_METADATA["device"])
+    if DEVICE.type == "cpu":
+        num_threads = int(os.environ.get("TORCH_NUM_THREADS", "1"))
+        torch.set_num_threads(num_threads)
     GRADCAM = GradCAM(MODEL)
 
 
@@ -293,22 +299,39 @@ async def predict(
     # Model input
     # ---------------------------------------------------------
 
-    transform = build_inference_transform()
+    transform = INFERENCE_TRANSFORM
 
     tensor = transform(
         model_image
     ).unsqueeze(0).to(DEVICE)
 
     # ---------------------------------------------------------
-    # Main E9 prediction
+    # Unified Grad-CAM + Prediction Forward Pass
     # ---------------------------------------------------------
 
-    with torch.inference_mode():
-        output = MODEL.forward_e8(
+    try:
+        gradcam_result = GRADCAM.generate(
             tensor,
-            output_size=(IMAGE_SIZE, IMAGE_SIZE),
+            target_class=None,
         )
 
+        output = gradcam_result["output"]
+
+        gradcam_overlay = _create_gradcam_overlay(
+            model_image,
+            gradcam_result["heatmap"],
+        )
+
+        # Free Grad-CAM intermediaries now that overlay is rendered.
+        del gradcam_result
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Grad-CAM generation failed: {exc}",
+        ) from exc
+
+    with torch.inference_mode():
         # Post-hoc temperature calibration fitted on
         # pooled E9 validation predictions only.
         dr_probabilities = torch.softmax(
@@ -434,27 +457,6 @@ async def predict(
             != derived_referable
         )
         review_required = review_required or referable_disagreement
-
-    # ---------------------------------------------------------
-    # Grad-CAM
-    # ---------------------------------------------------------
-
-    try:
-        gradcam_result = GRADCAM.generate(
-            tensor,
-            target_class=dr_grade,
-        )
-
-        gradcam_overlay = _create_gradcam_overlay(
-            model_image,
-            gradcam_result["heatmap"],
-        )
-
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Grad-CAM generation failed: {exc}",
-        ) from exc
 
     return {
         "status": "reportable",
@@ -734,4 +736,10 @@ async def predict(
             ),
         },
     }
+
+    # Prompt the garbage collector to reclaim per-request tensors.
+    # On memory-constrained runtimes (Render 512 MB) this helps
+    # keep RSS low between requests.
+    del tensor, output
+    gc.collect()
 

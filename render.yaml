@@ -8,3 +8,17 @@ services:
     envVars:
       - key: MODEL_PATH
         value: /app/checkpoints/e9_full_referable_best.pt
+      - key: INFERENCE_DEVICE
+        value: cpu
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: TORCH_NUM_THREADS
+        value: "1"
+      - key: MALLOC_TRIM_THRESHOLD_
+        value: "0"
+      - key: PYTORCH_NO_CUDA_MEMORY_CACHING
+        value: "1"

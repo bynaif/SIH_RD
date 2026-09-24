@@ -56,86 +56,92 @@ class GradCAM:
             probabilities: [1, 5]
         """
 
-        self.model.zero_grad(set_to_none=True)
+        try:
+            self.model.zero_grad(set_to_none=True)
 
-        output = self.model.forward_e8(
-            image_tensor,
-            output_size=(384, 384),
-        )
-
-        dr_logits = output["dr_logits"]
-
-        probabilities = torch.softmax(
-            dr_logits,
-            dim=1,
-        )
-
-        predicted_class = int(
-            torch.argmax(probabilities, dim=1)[0].item()
-        )
-
-        if target_class is None:
-            target_class = predicted_class
-
-        target_score = dr_logits[
-            0,
-            target_class,
-        ]
-
-        target_score.backward()
-
-        if self.activations is None:
-            raise RuntimeError(
-                "Grad-CAM activation was not captured."
+            output = self.model.forward_e8(
+                image_tensor,
+                output_size=(384, 384),
             )
 
-        if self.gradients is None:
-            raise RuntimeError(
-                "Grad-CAM gradients were not captured."
+            dr_logits = output["dr_logits"]
+
+            probabilities = torch.softmax(
+                dr_logits,
+                dim=1,
             )
 
-        activations = self.activations
-        gradients = self.gradients
+            predicted_class = int(
+                torch.argmax(probabilities, dim=1)[0].item()
+            )
 
-        # Global-average-pool gradients over spatial dimensions.
-        weights = gradients.mean(
-            dim=(2, 3),
-            keepdim=True,
-        )
+            if target_class is None:
+                target_class = predicted_class
 
-        cam = (
-            weights * activations
-        ).sum(dim=1, keepdim=True)
+            target_score = dr_logits[
+                0,
+                target_class,
+            ]
 
-        cam = F.relu(cam)
+            target_score.backward()
 
-        cam = F.interpolate(
-            cam,
-            size=image_tensor.shape[-2:],
-            mode="bilinear",
-            align_corners=False,
-        )
+            if self.activations is None:
+                raise RuntimeError(
+                    "Grad-CAM activation was not captured."
+                )
 
-        # Normalize each image independently to [0, 1].
-        cam_min = cam.amin(
-            dim=(2, 3),
-            keepdim=True,
-        )
+            if self.gradients is None:
+                raise RuntimeError(
+                    "Grad-CAM gradients were not captured."
+                )
 
-        cam_max = cam.amax(
-            dim=(2, 3),
-            keepdim=True,
-        )
+            activations = self.activations
+            gradients = self.gradients
 
-        cam = (
-            cam - cam_min
-        ) / (
-            cam_max - cam_min + 1e-8
-        )
+            # Global-average-pool gradients over spatial dimensions.
+            weights = gradients.mean(
+                dim=(2, 3),
+                keepdim=True,
+            )
 
-        return {
-            "heatmap": cam.detach(),
-            "target_class": int(target_class),
-            "predicted_class": predicted_class,
-            "probabilities": probabilities.detach(),
-        }
+            cam = (
+                weights * activations
+            ).sum(dim=1, keepdim=True)
+
+            cam = F.relu(cam)
+
+            cam = F.interpolate(
+                cam,
+                size=image_tensor.shape[-2:],
+                mode="bilinear",
+                align_corners=False,
+            )
+
+            # Normalize each image independently to [0, 1].
+            cam_min = cam.amin(
+                dim=(2, 3),
+                keepdim=True,
+            )
+
+            cam_max = cam.amax(
+                dim=(2, 3),
+                keepdim=True,
+            )
+
+            cam = (
+                cam - cam_min
+            ) / (
+                cam_max - cam_min + 1e-8
+            )
+
+            return {
+                "heatmap": cam.detach(),
+                "target_class": int(target_class),
+                "predicted_class": predicted_class,
+                "probabilities": probabilities.detach(),
+                "output": output,
+            }
+        finally:
+            self.activations = None
+            self.gradients = None
+            self.model.zero_grad(set_to_none=True)
