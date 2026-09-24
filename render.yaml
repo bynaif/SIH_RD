@@ -1,0 +1,10 @@
+# Render Blueprint configuration for SIH-26038 FastAPI inference service
+services:
+  - type: web
+    name: sih26038-api
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: MODEL_PATH
+        value: /app/checkpoints/e9_full_referable_best.pt
