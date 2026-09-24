@@ -151,6 +151,8 @@ def _create_gradcam_overlay(
 async def predict(
     image: UploadFile = File(...),
 ):
+    print("[PREDICT] request_received", flush=True)
+
     if MODEL is None:
         raise HTTPException(
             status_code=503,
@@ -173,6 +175,7 @@ async def predict(
 
     try:
         image_bytes = await image.read()
+        print(f"[PREDICT] image_bytes_read: {len(image_bytes)} bytes", flush=True)
 
         # Guard: reject uploads larger than 20 MB to prevent OOM.
         _MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -188,6 +191,7 @@ async def predict(
         pil_image = Image.open(
             io.BytesIO(image_bytes)
         ).convert("RGB")
+        print(f"[PREDICT] image_decoded: format={pil_image.format} size={pil_image.size} mode={pil_image.mode}", flush=True)
 
     except HTTPException:
         raise
@@ -204,7 +208,9 @@ async def predict(
     # They are NOT clinical gradability labels.
     # ---------------------------------------------------------
 
+    print("[PREDICT] quality_processing_start", flush=True)
     model_image, quality_features, quality_status = prepare_quality_aware_image(pil_image)
+    print("[PREDICT] quality_processing_complete", flush=True)
 
     # ---------------------------------------------------------
     # Technical Quality Gate (Engineering Input Safeguard)
@@ -212,6 +218,7 @@ async def predict(
     gate_result = evaluate_technical_quality(model_image, quality_features)
 
     clinical_readability = assess_clinical_readability(quality_features)
+    print(f"[PREDICT] technical_gate_complete: valid={gate_result['technical_valid']}", flush=True)
 
     if not gate_result["technical_valid"]:
         return {
@@ -304,16 +311,19 @@ async def predict(
     tensor = transform(
         model_image
     ).unsqueeze(0).to(DEVICE)
+    print("[PREDICT] model_tensor_prepared", flush=True)
 
     # ---------------------------------------------------------
     # Unified Grad-CAM + Prediction Forward Pass
     # ---------------------------------------------------------
 
     try:
+        print("[PREDICT] gradcam_generate_start", flush=True)
         gradcam_result = GRADCAM.generate(
             tensor,
             target_class=None,
         )
+        print("[PREDICT] gradcam_generate_complete", flush=True)
 
         output = gradcam_result["output"]
 
@@ -321,11 +331,13 @@ async def predict(
             model_image,
             gradcam_result["heatmap"],
         )
+        print("[PREDICT] gradcam_overlay_created", flush=True)
 
         # Free Grad-CAM intermediaries now that overlay is rendered.
         del gradcam_result
 
     except Exception as exc:
+        print(f"[PREDICT] gradcam_failed: {exc}", flush=True)
         raise HTTPException(
             status_code=500,
             detail=f"Grad-CAM generation failed: {exc}",

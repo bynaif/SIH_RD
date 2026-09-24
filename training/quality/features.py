@@ -109,18 +109,28 @@ def compute_quality_features(image: Image.Image) -> QualityFeatures:
     unusual-aspect-ratio inputs. No image file is read, changed, or written.
     """
 
-    rgb_image, rgb_array = _ensure_rgb_array(image)
-    height, width = rgb_array.shape[:2]
+    orig_width, orig_height = image.size
+
+    # Scale high-resolution inputs (max 1024px) for fast, low-memory feature calculation
+    max_dim = max(orig_width, orig_height)
+    if max_dim > 1024:
+        scale = 1024.0 / max_dim
+        new_size = (max(1, int(orig_width * scale)), max(1, int(orig_height * scale)))
+        eval_image = image.resize(new_size, Image.Resampling.BILINEAR)
+    else:
+        eval_image = image
+
+    rgb_image, rgb_array = _ensure_rgb_array(eval_image)
     luminance = _luminance(rgb_array)
     field_mask = np.max(rgb_array, axis=2) > BACKGROUND_THRESHOLD
     dark_mask = luminance <= BACKGROUND_THRESHOLD
     saturated_mask = luminance >= SATURATION_THRESHOLD
 
     return QualityFeatures(
-        width=width,
-        height=height,
-        aspect_ratio=float(width / height),
-        rgb_mode=rgb_image.mode,
+        width=orig_width,
+        height=orig_height,
+        aspect_ratio=float(orig_width / orig_height),
+        rgb_mode=image.mode,
         sharpness_laplacian_variance=_laplacian_variance(luminance),
         retinal_field_coverage=float(np.mean(field_mask)),
         mean_luminance=float(np.mean(luminance)),
